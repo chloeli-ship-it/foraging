@@ -219,6 +219,16 @@
     border-left:4px solid var(--berry);
   }
 
+  .find-editing{
+    border-left:4px solid var(--gold);
+  }
+  .find-editing .field label{
+    color:var(--bark);
+  }
+  .find-editing .find-coords{
+    margin:8px 0 12px;
+  }
+
   .find-top{
     display:flex;
     justify-content:space-between;
@@ -354,10 +364,16 @@ function mapsUrl(lat, lon){
   return `https://www.google.com/maps?q=${lat},${lon}`;
 }
 
+function directionsUrl(lat, lon){
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=walking`;
+}
+
 function formatDate(iso){
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
 }
+
+let editingId = null;
 
 function renderFinds(){
   if(finds.length === 0){
@@ -365,7 +381,27 @@ function renderFinds(){
     return;
   }
   const sorted = [...finds].sort((a,b) => new Date(b.date) - new Date(a.date));
-  findsList.innerHTML = sorted.map(f => `
+  findsList.innerHTML = sorted.map(f => {
+    if(f.id === editingId){
+      return `
+        <div class="find find-editing" data-id="${f.id}">
+          <div class="field">
+            <label>Fruit</label>
+            <input type="text" class="edit-fruit" value="${escapeHtml(f.fruit)}">
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <textarea class="edit-note">${escapeHtml(f.note || '')}</textarea>
+          </div>
+          <div class="find-coords">${formatCoords(f.lat, f.lon)}</div>
+          <div class="form-actions">
+            <button class="save-btn" data-save-edit="${f.id}">Save changes</button>
+            <button class="cancel-btn" data-cancel-edit="${f.id}">Cancel</button>
+          </div>
+        </div>
+      `;
+    }
+    return `
     <div class="find" data-id="${f.id}">
       <div class="find-top">
         <div class="find-name">${escapeHtml(f.fruit)}</div>
@@ -375,17 +411,53 @@ function renderFinds(){
       <div class="find-bottom">
         <div class="find-coords">${formatCoords(f.lat, f.lon)}</div>
         <div class="find-actions">
+          <a href="${directionsUrl(f.lat, f.lon)}" target="_blank" rel="noopener">Get directions</a>
           <a href="${mapsUrl(f.lat, f.lon)}" target="_blank" rel="noopener">View on map</a>
+          <button data-edit="${f.id}">Edit</button>
           <button data-delete="${f.id}">Delete</button>
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   findsList.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-delete');
       finds = finds.filter(f => f.id !== id);
+      await saveFinds();
+      renderFinds();
+    });
+  });
+
+  findsList.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editingId = btn.getAttribute('data-edit');
+      renderFinds();
+    });
+  });
+
+  findsList.querySelectorAll('[data-cancel-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editingId = null;
+      renderFinds();
+    });
+  });
+
+  findsList.querySelectorAll('[data-save-edit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-save-edit');
+      const card = findsList.querySelector(`.find-editing[data-id="${id}"]`);
+      const newFruit = card.querySelector('.edit-fruit').value.trim();
+      const newNote = card.querySelector('.edit-note').value.trim();
+      if(!newFruit) return;
+
+      const target = finds.find(f => f.id === id);
+      if(target){
+        target.fruit = newFruit;
+        target.note = newNote;
+      }
+      editingId = null;
       await saveFinds();
       renderFinds();
     });
