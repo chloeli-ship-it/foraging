@@ -547,11 +547,15 @@ function fruitEmoji(name){
   const table = [
     [['apple', 'crabapple'], '🍎'],
     [['pear'], '🍐'],
-    [['plum'], '🍑'],
+    [['yellow plum'], '🟡'],
+    [['green plum'], '🟢'],
+    [['plum'], '🟣'],
     [['peach'], '🍑'],
     [['cherry', 'cherries'], '🍒'],
     [['grape'], '🍇'],
-    [['fig'], '🫐'],
+    [['olive'], '🫒'],
+    [['fig'], '🟤'],
+    [['persimmon'], '🟠'],
     [['blackberr'], '🫐'],
     [['raspberr'], '🍓'],
     [['strawberr'], '🍓'],
@@ -568,7 +572,6 @@ function fruitEmoji(name){
     [['pineapple'], '🍍'],
     [['kiwi'], '🥝'],
     [['coconut'], '🥥'],
-    [['persimmon'], '🍊'],
     [['pawpaw'], '🍈'],
     [['rosehip', 'rose hip'], '🌹'],
     [['mushroom', 'chanterelle', 'morel', 'porcini', 'bolete'], '🍄'],
@@ -581,7 +584,7 @@ function fruitEmoji(name){
   for(const [keywords, emoji] of table){
     if(keywords.some(k => n.includes(k))) return emoji;
   }
-  return '🍒';
+  return '⚪';
 }
 
 /* ---------- Tabs ---------- */
