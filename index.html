@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Foraging Log</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -16,6 +18,9 @@
     --berry-dark:#7a1f30;
     --gold:#c99a3e;
     --ink:#2a2a22;
+    --great:#3f7d4a;
+    --medium:#c99a3e;
+    --ok:#8a7a63;
   }
 
   *{box-sizing:border-box;}
@@ -142,6 +147,28 @@
   }
   .field textarea{ min-height:64px; }
 
+  .rating-row{
+    display:flex;
+    gap:8px;
+  }
+  .rating-btn{
+    flex:1;
+    padding:9px 0;
+    border-radius:8px;
+    border:2px solid #cfc4a4;
+    background:#faf6ea;
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size:0.82rem;
+    cursor:pointer;
+    color:var(--ink);
+    opacity:0.55;
+  }
+  .rating-btn.selected{ opacity:1; border-color:currentColor; }
+  .rating-btn[data-rating="great"]{ color:var(--great); }
+  .rating-btn[data-rating="medium"]{ color:var(--medium); }
+  .rating-btn[data-rating="ok"]{ color:var(--ok); }
+
   .form-actions{
     display:flex;
     gap:10px;
@@ -183,23 +210,34 @@
   }
   .backup-sep{ color:#5a6b4a; }
 
-  /* Finds list */
-  .divider{
+  /* Tabs */
+  .tabs{
     display:flex;
-    align-items:center;
-    gap:10px;
+    gap:6px;
     margin:32px 0 16px;
-    color:#8a9578;
-    font-size:0.75rem;
-    text-transform:uppercase;
-    letter-spacing:0.12em;
+    background:#182013;
+    border-radius:999px;
+    padding:4px;
   }
-  .divider::before, .divider::after{
-    content:"";
+  .tab-btn{
     flex:1;
-    height:1px;
-    background:#3f4c33;
+    border:none;
+    background:none;
+    padding:9px 0;
+    border-radius:999px;
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:0.92rem;
+    color:#8a9578;
+    cursor:pointer;
   }
+  .tab-btn.active{
+    background:var(--moss-mid);
+    color:var(--paper);
+  }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
 
   .empty{
     text-align:center;
@@ -207,6 +245,63 @@
     font-size:0.9rem;
     padding:24px 10px;
     font-style:italic;
+  }
+
+  /* Map */
+  #mapContainer{
+    height:420px;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  }
+  .map-legend{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    margin-top:12px;
+    font-size:0.78rem;
+    color:#b9c2ab;
+  }
+  .map-legend span{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .legend-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    display:inline-block;
+  }
+  .popup-fruit{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1rem;
+    margin-bottom:2px;
+  }
+  .popup-note{ font-size:0.85rem; margin-bottom:6px; }
+  .popup-links a{
+    font-size:0.78rem;
+    margin-right:10px;
+    color:var(--berry-dark);
+  }
+
+  .fruit-pin-wrapper{ background:transparent; border:none; }
+  .fruit-pin{
+    width:34px;
+    height:34px;
+    border-radius:50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border:2px solid #20291a;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .fruit-pin-emoji{
+    transform: rotate(45deg);
+    font-size:16px;
+    line-height:1;
   }
 
   .find{
@@ -234,6 +329,34 @@
     justify-content:space-between;
     align-items:baseline;
     gap:10px;
+  }
+
+  .find-name-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+
+  .quick-rate{
+    display:flex;
+    gap:5px;
+    flex-shrink:0;
+  }
+  .quick-dot{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    display:inline-block;
+    border:2px solid var(--dot-color);
+    background:transparent;
+    cursor:pointer;
+    transition: background 0.1s ease;
+  }
+  .quick-dot.active{
+    background:var(--dot-color);
+  }
+  .quick-dot:hover{
+    opacity:0.8;
   }
 
   .find-name{
@@ -298,12 +421,20 @@
     <div class="form-card" id="formCard">
       <div class="coords" id="coordsLine"></div>
       <div class="field">
-        <label for="fruitInput">What did you find?</label>
+        <label for="fruitInput">Fruit</label>
         <input type="text" id="fruitInput" placeholder="e.g. blackberries, wild apple">
       </div>
       <div class="field">
-        <label for="noteInput">Notes (optional)</label>
+        <label for="noteInput">Notes</label>
         <textarea id="noteInput" placeholder="ripe, near the old fence, tree is on the south side of the trail..."></textarea>
+      </div>
+      <div class="field">
+        <label>Rating</label>
+        <div class="rating-row" id="ratingRow">
+          <button type="button" class="rating-btn" data-rating="great">Great</button>
+          <button type="button" class="rating-btn" data-rating="medium">Medium</button>
+          <button type="button" class="rating-btn" data-rating="ok">Ok</button>
+        </div>
       </div>
       <div class="form-actions">
         <button class="save-btn" id="saveBtn">Save find</button>
@@ -319,14 +450,36 @@
     </div>
     <div class="status-line" id="backupStatus"></div>
 
-    <div class="divider">Recent finds</div>
-    <div id="findsList"></div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="list">List</button>
+      <button class="tab-btn" data-tab="map">Map</button>
+    </div>
+
+    <div class="view active" id="listView">
+      <div id="findsList"></div>
+    </div>
+
+    <div class="view" id="mapView">
+      <div id="mapContainer"></div>
+      <div class="map-legend">
+        <span><span class="legend-dot" style="background:var(--great)"></span>Great</span>
+        <span><span class="legend-dot" style="background:var(--medium)"></span>Medium</span>
+        <span><span class="legend-dot" style="background:var(--ok)"></span>Ok</span>
+      </div>
+    </div>
   </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const STORAGE_KEY = 'finds';
 let pendingCoords = null;
 let finds = [];
+let selectedRating = null;
+let editingId = null;
+let leafletMap = null;
+let mapMarkers = [];
+
+const RATING_COLORS = { great: '#3f7d4a', medium: '#c99a3e', ok: '#8a7a63' };
 
 const logBtn = document.getElementById('logBtn');
 const statusLine = document.getElementById('statusLine');
@@ -334,9 +487,12 @@ const formCard = document.getElementById('formCard');
 const coordsLine = document.getElementById('coordsLine');
 const fruitInput = document.getElementById('fruitInput');
 const noteInput = document.getElementById('noteInput');
+const ratingRow = document.getElementById('ratingRow');
 const saveBtn = document.getElementById('saveBtn');
 const cancelBtn = document.getElementById('cancelBtn');
 const findsList = document.getElementById('findsList');
+const listView = document.getElementById('listView');
+const mapView = document.getElementById('mapView');
 
 async function loadFinds(){
   try{
@@ -373,8 +529,76 @@ function formatDate(iso){
   return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
 }
 
-let editingId = null;
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
+function ratingLabel(r){
+  if(r === 'great') return 'Great';
+  if(r === 'medium') return 'Medium';
+  if(r === 'ok') return 'Ok';
+  return '';
+}
+
+function fruitEmoji(name){
+  const n = (name || '').toLowerCase();
+  const table = [
+    [['apple', 'crabapple'], '🍎'],
+    [['pear'], '🍐'],
+    [['plum'], '🍑'],
+    [['peach'], '🍑'],
+    [['cherry', 'cherries'], '🍒'],
+    [['grape'], '🍇'],
+    [['fig'], '🫐'],
+    [['blackberr'], '🫐'],
+    [['raspberr'], '🍓'],
+    [['strawberr'], '🍓'],
+    [['blueberr'], '🫐'],
+    [['mulberr'], '🫐'],
+    [['elderberr'], '🫐'],
+    [['berry', 'berries'], '🫐'],
+    [['orange', 'citrus', 'tangerine', 'mandarin'], '🍊'],
+    [['lemon'], '🍋'],
+    [['lime'], '🍈'],
+    [['melon', 'cantaloupe'], '🍈'],
+    [['watermelon'], '🍉'],
+    [['banana'], '🍌'],
+    [['pineapple'], '🍍'],
+    [['kiwi'], '🥝'],
+    [['coconut'], '🥥'],
+    [['persimmon'], '🍊'],
+    [['pawpaw'], '🍈'],
+    [['rosehip', 'rose hip'], '🌹'],
+    [['mushroom', 'chanterelle', 'morel', 'porcini', 'bolete'], '🍄'],
+    [['walnut', 'hazelnut', 'chestnut', 'acorn', 'nut'], '🌰'],
+    [['tomato'], '🍅'],
+    [['pepper'], '🌶️'],
+    [['squash', 'pumpkin'], '🎃'],
+    [['nettle', 'herb', 'wild garlic', 'ramps'], '🌿']
+  ];
+  for(const [keywords, emoji] of table){
+    if(keywords.some(k => n.includes(k))) return emoji;
+  }
+  return '🍒';
+}
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.getAttribute('data-tab');
+    listView.classList.toggle('active', tab === 'list');
+    mapView.classList.toggle('active', tab === 'map');
+    if(tab === 'map'){
+      initOrRefreshMap();
+    }
+  });
+});
+
+/* ---------- List rendering ---------- */
 function renderFinds(){
   if(finds.length === 0){
     findsList.innerHTML = '<div class="empty">No finds logged yet — go track something down.</div>';
@@ -393,6 +617,14 @@ function renderFinds(){
             <label>Notes</label>
             <textarea class="edit-note">${escapeHtml(f.note || '')}</textarea>
           </div>
+          <div class="field">
+            <label>Rating</label>
+            <div class="rating-row edit-rating-row">
+              <button type="button" class="rating-btn ${f.rating==='great'?'selected':''}" data-rating="great">Great</button>
+              <button type="button" class="rating-btn ${f.rating==='medium'?'selected':''}" data-rating="medium">Medium</button>
+              <button type="button" class="rating-btn ${f.rating==='ok'?'selected':''}" data-rating="ok">Ok</button>
+            </div>
+          </div>
           <div class="find-coords">${formatCoords(f.lat, f.lon)}</div>
           <div class="form-actions">
             <button class="save-btn" data-save-edit="${f.id}">Save changes</button>
@@ -404,7 +636,14 @@ function renderFinds(){
     return `
     <div class="find" data-id="${f.id}">
       <div class="find-top">
-        <div class="find-name">${escapeHtml(f.fruit)}</div>
+        <div class="find-name-row">
+          <div class="quick-rate" data-quick-id="${f.id}">
+            <span class="quick-dot ${f.rating==='great'?'active':''}" data-quick-rating="great" style="--dot-color:${RATING_COLORS.great}"></span>
+            <span class="quick-dot ${f.rating==='medium'?'active':''}" data-quick-rating="medium" style="--dot-color:${RATING_COLORS.medium}"></span>
+            <span class="quick-dot ${f.rating==='ok'?'active':''}" data-quick-rating="ok" style="--dot-color:${RATING_COLORS.ok}"></span>
+          </div>
+          <div class="find-name">${escapeHtml(f.fruit)}</div>
+        </div>
         <div class="find-date">${formatDate(f.date)}</div>
       </div>
       ${f.note ? `<div class="find-note">${escapeHtml(f.note)}</div>` : ''}
@@ -427,6 +666,22 @@ function renderFinds(){
       finds = finds.filter(f => f.id !== id);
       await saveFinds();
       renderFinds();
+      if(leafletMap) initOrRefreshMap();
+    });
+  });
+
+  findsList.querySelectorAll('.quick-dot').forEach(dot => {
+    dot.addEventListener('click', async () => {
+      const wrapper = dot.closest('.quick-rate');
+      const id = wrapper.getAttribute('data-quick-id');
+      const rating = dot.getAttribute('data-quick-rating');
+      const target = finds.find(f => f.id === id);
+      if(target){
+        target.rating = (target.rating === rating) ? null : rating;
+      }
+      await saveFinds();
+      renderFinds();
+      if(leafletMap) initOrRefreshMap();
     });
   });
 
@@ -444,31 +699,99 @@ function renderFinds(){
     });
   });
 
+  findsList.querySelectorAll('.edit-rating-row').forEach(row => {
+    row.querySelectorAll('.rating-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        row.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
+  });
+
   findsList.querySelectorAll('[data-save-edit]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-save-edit');
       const card = findsList.querySelector(`.find-editing[data-id="${id}"]`);
       const newFruit = card.querySelector('.edit-fruit').value.trim();
       const newNote = card.querySelector('.edit-note').value.trim();
+      const selectedBtn = card.querySelector('.rating-btn.selected');
+      const newRating = selectedBtn ? selectedBtn.getAttribute('data-rating') : null;
       if(!newFruit) return;
 
       const target = finds.find(f => f.id === id);
       if(target){
         target.fruit = newFruit;
         target.note = newNote;
+        target.rating = newRating;
       }
       editingId = null;
       await saveFinds();
       renderFinds();
+      if(leafletMap) initOrRefreshMap();
     });
   });
 }
 
-function escapeHtml(str){
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+/* ---------- Map ---------- */
+function initOrRefreshMap(){
+  if(!leafletMap){
+    leafletMap = L.map('mapContainer');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(leafletMap);
+  }
+
+  mapMarkers.forEach(m => leafletMap.removeLayer(m));
+  mapMarkers = [];
+
+  if(finds.length === 0){
+    leafletMap.setView([45.5152, -122.6784], 11);
+    return;
+  }
+
+  finds.forEach(f => {
+    const color = RATING_COLORS[f.rating] || '#b9ab8a';
+    const emoji = fruitEmoji(f.fruit);
+    const icon = L.divIcon({
+      className: 'fruit-pin-wrapper',
+      html: `
+        <div class="fruit-pin" style="background:${color};">
+          <span class="fruit-pin-emoji">${emoji}</span>
+        </div>
+      `,
+      iconSize: [34, 34],
+      iconAnchor: [17, 32],
+      popupAnchor: [0, -30]
+    });
+    const marker = L.marker([f.lat, f.lon], { icon }).addTo(leafletMap);
+
+    const popupHtml = `
+      <div class="popup-fruit">${emoji} ${escapeHtml(f.fruit)}</div>
+      ${f.note ? `<div class="popup-note">${escapeHtml(f.note)}</div>` : ''}
+      ${f.rating ? `<div class="popup-note">Rating: ${ratingLabel(f.rating)}</div>` : ''}
+      <div class="popup-links">
+        <a href="${directionsUrl(f.lat, f.lon)}" target="_blank" rel="noopener">Get directions</a>
+      </div>
+    `;
+    marker.bindPopup(popupHtml);
+    mapMarkers.push(marker);
+  });
+
+  const bounds = L.latLngBounds(finds.map(f => [f.lat, f.lon]));
+  leafletMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+
+  setTimeout(() => leafletMap.invalidateSize(), 50);
 }
+
+/* ---------- Log form ---------- */
+ratingRow.querySelectorAll('.rating-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    ratingRow.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedRating = btn.getAttribute('data-rating');
+  });
+});
 
 logBtn.addEventListener('click', () => {
   if(!navigator.geolocation){
@@ -500,6 +823,8 @@ cancelBtn.addEventListener('click', () => {
   fruitInput.value = '';
   noteInput.value = '';
   pendingCoords = null;
+  selectedRating = null;
+  ratingRow.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
 });
 
 saveBtn.addEventListener('click', async () => {
@@ -514,6 +839,7 @@ saveBtn.addEventListener('click', async () => {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     fruit,
     note: noteInput.value.trim(),
+    rating: selectedRating,
     lat: pendingCoords.lat,
     lon: pendingCoords.lon,
     date: new Date().toISOString()
@@ -522,13 +848,17 @@ saveBtn.addEventListener('click', async () => {
   finds.push(entry);
   await saveFinds();
   renderFinds();
+  if(leafletMap) initOrRefreshMap();
 
   formCard.classList.remove('open');
   fruitInput.value = '';
   noteInput.value = '';
   pendingCoords = null;
+  selectedRating = null;
+  ratingRow.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
 });
 
+/* ---------- Backup ---------- */
 const exportBtn = document.getElementById('exportBtn');
 const importInput = document.getElementById('importInput');
 const backupStatus = document.getElementById('backupStatus');
@@ -571,6 +901,7 @@ importInput.addEventListener('change', async (e) => {
     }
     await saveFinds();
     renderFinds();
+    if(leafletMap) initOrRefreshMap();
     backupStatus.textContent = added > 0
       ? `Imported ${added} new find${added === 1 ? '' : 's'} (duplicates skipped).`
       : "Nothing new to import — all finds already here.";
