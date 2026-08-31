@@ -304,6 +304,106 @@
     line-height:1;
   }
 
+  /* Ripeness window grid */
+  .window-grid{
+    background:#faf6ea;
+    border-radius:10px;
+    padding:8px;
+  }
+  .grid-header, .grid-row{
+    display:grid;
+    grid-template-columns: 38px repeat(3, 1fr);
+    gap:4px;
+    align-items:center;
+    margin-bottom:4px;
+  }
+  .grid-header{ margin-bottom:6px; }
+  .grid-month{
+    font-size:0.68rem;
+    color:var(--bark);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .grid-head-cell{
+    font-size:0.62rem;
+    text-transform:uppercase;
+    text-align:center;
+    color:var(--bark);
+    letter-spacing:0.05em;
+  }
+  .grid-cell{
+    position:relative;
+    height:24px;
+    border-radius:6px;
+    border:1px solid #cfc4a4;
+    background:#fff;
+    cursor:pointer;
+    padding:0;
+  }
+  .grid-cell.selected{
+    background:var(--moss-mid);
+    border-color:var(--moss-mid);
+  }
+  .grid-cell.is-now{
+    box-shadow: 0 0 0 2px var(--berry) inset;
+  }
+  .grid-count{
+    position:absolute;
+    top:-6px;
+    right:-6px;
+    background:var(--berry);
+    color:#fff;
+    font-size:0.58rem;
+    border-radius:50%;
+    width:14px;
+    height:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    line-height:1;
+  }
+
+  /* Calendar tab */
+  .calendar-hint{
+    font-size:0.78rem;
+    color:#b9c2ab;
+    text-align:center;
+    margin-bottom:14px;
+  }
+  .calendar-grid{
+    background:var(--paper-dim);
+    margin-bottom:16px;
+  }
+  #calendarList .find{
+    border-left-color:var(--gold);
+  }
+  #calendarList .empty{ color:#b9c2ab; }
+
+  /* Locate button */
+  .locate-btn{
+    width:100%;
+    padding:10px 0;
+    margin-bottom:12px;
+    border-radius:10px;
+    border:1px solid #3f4c33;
+    background:var(--moss-mid);
+    color:var(--paper);
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size:0.88rem;
+    cursor:pointer;
+  }
+  .locate-btn:disabled{ opacity:0.6; cursor:wait; }
+
+  .user-dot-wrapper{ background:transparent; border:none; }
+  .user-dot{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    background:#3b82f6;
+    border:3px solid #fff;
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.35), 0 2px 4px rgba(0,0,0,0.4);
+  }
+
   .find{
     background:var(--paper-dim);
     color:var(--ink);
@@ -436,6 +536,10 @@
           <button type="button" class="rating-btn" data-rating="ok">Ok</button>
         </div>
       </div>
+      <div class="field">
+        <label>When's it ready to pick?</label>
+        <div class="window-grid" id="logWindowGrid"></div>
+      </div>
       <div class="form-actions">
         <button class="save-btn" id="saveBtn">Save find</button>
         <button class="cancel-btn" id="cancelBtn">Cancel</button>
@@ -453,6 +557,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="list">List</button>
       <button class="tab-btn" data-tab="map">Map</button>
+      <button class="tab-btn" data-tab="calendar">Calendar</button>
     </div>
 
     <div class="view active" id="listView">
@@ -460,12 +565,19 @@
     </div>
 
     <div class="view" id="mapView">
+      <button class="locate-btn" id="locateBtn">📍 Find me</button>
       <div id="mapContainer"></div>
       <div class="map-legend">
         <span><span class="legend-dot" style="background:var(--great)"></span>Great</span>
         <span><span class="legend-dot" style="background:var(--medium)"></span>Medium</span>
         <span><span class="legend-dot" style="background:var(--ok)"></span>Ok</span>
       </div>
+    </div>
+
+    <div class="view" id="calendarView">
+      <div class="calendar-hint">Ring shows the current period. Tap a cell to see what's ready.</div>
+      <div class="window-grid calendar-grid" id="calendarGrid"></div>
+      <div id="calendarList"></div>
     </div>
   </div>
 
@@ -480,6 +592,40 @@ let leafletMap = null;
 let mapMarkers = [];
 
 const RATING_COLORS = { great: '#3f7d4a', medium: '#c99a3e', ok: '#8a7a63' };
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const PERIODS = ['early','mid','end'];
+
+function nowKey(){
+  const d = new Date();
+  const day = d.getDate();
+  let period = 'early';
+  if(day > 20) period = 'end';
+  else if(day > 10) period = 'mid';
+  return `${d.getMonth()}-${period}`;
+}
+
+function windowGridHtml(selected, counts){
+  const nk = nowKey();
+  const header = `<div class="grid-header"><div class="grid-month"></div><div class="grid-head-cell">Early</div><div class="grid-head-cell">Mid</div><div class="grid-head-cell">End</div></div>`;
+  const rows = MONTHS.map((m, mi) => {
+    const cells = PERIODS.map(p => {
+      const key = `${mi}-${p}`;
+      const isSel = selected.includes(key);
+      const isNow = key === nk;
+      const count = counts ? (counts[key] || 0) : 0;
+      const badge = count > 0 ? `<span class="grid-count">${count}</span>` : '';
+      return `<button type="button" class="grid-cell ${isSel ? 'selected' : ''} ${isNow ? 'is-now' : ''}" data-key="${key}">${badge}</button>`;
+    }).join('');
+    return `<div class="grid-row"><div class="grid-month">${m}</div>${cells}</div>`;
+  }).join('');
+  return header + rows;
+}
+
+function windowKeyLabel(key){
+  const [mi, p] = key.split('-');
+  const periodLabel = p === 'early' ? 'Early' : p === 'mid' ? 'Mid' : 'End';
+  return `${periodLabel} ${MONTHS[parseInt(mi, 10)]}`;
+}
 
 const logBtn = document.getElementById('logBtn');
 const statusLine = document.getElementById('statusLine');
@@ -493,6 +639,31 @@ const cancelBtn = document.getElementById('cancelBtn');
 const findsList = document.getElementById('findsList');
 const listView = document.getElementById('listView');
 const mapView = document.getElementById('mapView');
+const calendarView = document.getElementById('calendarView');
+const logWindowGrid = document.getElementById('logWindowGrid');
+const locateBtn = document.getElementById('locateBtn');
+const calendarGrid = document.getElementById('calendarGrid');
+const calendarList = document.getElementById('calendarList');
+
+let selectedWindows = new Set();
+let calendarSelectedKey = null;
+
+function renderLogWindowGrid(){
+  logWindowGrid.innerHTML = windowGridHtml(Array.from(selectedWindows));
+  logWindowGrid.querySelectorAll('.grid-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const key = cell.getAttribute('data-key');
+      if(selectedWindows.has(key)){
+        selectedWindows.delete(key);
+        cell.classList.remove('selected');
+      }else{
+        selectedWindows.add(key);
+        cell.classList.add('selected');
+      }
+    });
+  });
+}
+renderLogWindowGrid();
 
 async function loadFinds(){
   try{
@@ -595,8 +766,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.getAttribute('data-tab');
     listView.classList.toggle('active', tab === 'list');
     mapView.classList.toggle('active', tab === 'map');
+    calendarView.classList.toggle('active', tab === 'calendar');
     if(tab === 'map'){
       initOrRefreshMap();
+    }
+    if(tab === 'calendar'){
+      renderCalendar();
     }
   });
 });
@@ -627,6 +802,10 @@ function renderFinds(){
               <button type="button" class="rating-btn ${f.rating==='medium'?'selected':''}" data-rating="medium">Medium</button>
               <button type="button" class="rating-btn ${f.rating==='ok'?'selected':''}" data-rating="ok">Ok</button>
             </div>
+          </div>
+          <div class="field">
+            <label>When's it ready to pick?</label>
+            <div class="window-grid edit-window-grid">${windowGridHtml(f.windows || [])}</div>
           </div>
           <div class="find-coords">${formatCoords(f.lat, f.lon)}</div>
           <div class="form-actions">
@@ -711,6 +890,14 @@ function renderFinds(){
     });
   });
 
+  findsList.querySelectorAll('.edit-window-grid').forEach(grid => {
+    grid.querySelectorAll('.grid-cell').forEach(cell => {
+      cell.addEventListener('click', () => {
+        cell.classList.toggle('selected');
+      });
+    });
+  });
+
   findsList.querySelectorAll('[data-save-edit]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-save-edit');
@@ -719,6 +906,7 @@ function renderFinds(){
       const newNote = card.querySelector('.edit-note').value.trim();
       const selectedBtn = card.querySelector('.rating-btn.selected');
       const newRating = selectedBtn ? selectedBtn.getAttribute('data-rating') : null;
+      const newWindows = Array.from(card.querySelectorAll('.edit-window-grid .grid-cell.selected')).map(c => c.getAttribute('data-key'));
       if(!newFruit) return;
 
       const target = finds.find(f => f.id === id);
@@ -726,6 +914,7 @@ function renderFinds(){
         target.fruit = newFruit;
         target.note = newNote;
         target.rating = newRating;
+        target.windows = newWindows;
       }
       editingId = null;
       await saveFinds();
@@ -787,6 +976,103 @@ function initOrRefreshMap(){
   setTimeout(() => leafletMap.invalidateSize(), 50);
 }
 
+/* ---------- Calendar ---------- */
+function renderCalendar(){
+  if(calendarSelectedKey === null){
+    calendarSelectedKey = nowKey();
+  }
+
+  const counts = {};
+  finds.forEach(f => {
+    (f.windows || []).forEach(k => {
+      counts[k] = (counts[k] || 0) + 1;
+    });
+  });
+
+  calendarGrid.innerHTML = windowGridHtml([], counts);
+  calendarGrid.querySelectorAll('.grid-cell').forEach(cell => {
+    const key = cell.getAttribute('data-key');
+    if(key === calendarSelectedKey) cell.classList.add('selected');
+    cell.addEventListener('click', () => {
+      calendarSelectedKey = key;
+      renderCalendar();
+    });
+  });
+
+  const matches = finds.filter(f => (f.windows || []).includes(calendarSelectedKey));
+  const heading = `<div class="calendar-hint" style="margin-bottom:10px;">${windowKeyLabel(calendarSelectedKey)}${calendarSelectedKey === nowKey() ? ' · now' : ''}</div>`;
+
+  if(matches.length === 0){
+    calendarList.innerHTML = heading + '<div class="empty">Nothing tagged for this period yet.</div>';
+    return;
+  }
+
+  calendarList.innerHTML = heading + matches.map(f => {
+    const dotColor = RATING_COLORS[f.rating] || '#b9ab8a';
+    const emoji = fruitEmoji(f.fruit);
+    return `
+      <div class="find" data-id="${f.id}">
+        <div class="find-top">
+          <div class="find-name-row">
+            <span class="rating-dot" style="width:9px;height:9px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
+            <div class="find-name">${emoji} ${escapeHtml(f.fruit)}</div>
+          </div>
+          <div class="find-date">${formatDate(f.date)}</div>
+        </div>
+        ${f.note ? `<div class="find-note">${escapeHtml(f.note)}</div>` : ''}
+        <div class="find-bottom">
+          <div class="find-coords">${formatCoords(f.lat, f.lon)}</div>
+          <div class="find-actions">
+            <a href="${directionsUrl(f.lat, f.lon)}" target="_blank" rel="noopener">Get directions</a>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ---------- Locate me ---------- */
+let userMarker = null;
+
+locateBtn.addEventListener('click', () => {
+  if(!navigator.geolocation){
+    return;
+  }
+  locateBtn.disabled = true;
+  locateBtn.textContent = 'Finding you...';
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      if(!leafletMap) initOrRefreshMap();
+
+      const icon = L.divIcon({
+        className: 'user-dot-wrapper',
+        html: '<div class="user-dot"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      if(userMarker){
+        userMarker.setLatLng([latitude, longitude]);
+      }else{
+        userMarker = L.marker([latitude, longitude], { icon, zIndexOffset: 1000 }).addTo(leafletMap);
+        userMarker.bindPopup('You are here');
+      }
+
+      leafletMap.setView([latitude, longitude], 15);
+      locateBtn.disabled = false;
+      locateBtn.textContent = '📍 Find me';
+    },
+    (err) => {
+      locateBtn.disabled = false;
+      locateBtn.textContent = "Couldn't find you — check permissions";
+      setTimeout(() => { locateBtn.textContent = '📍 Find me'; }, 3000);
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+});
+
 /* ---------- Log form ---------- */
 ratingRow.querySelectorAll('.rating-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -827,6 +1113,8 @@ cancelBtn.addEventListener('click', () => {
   noteInput.value = '';
   pendingCoords = null;
   selectedRating = null;
+  selectedWindows = new Set();
+  renderLogWindowGrid();
   ratingRow.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
 });
 
@@ -843,6 +1131,7 @@ saveBtn.addEventListener('click', async () => {
     fruit,
     note: noteInput.value.trim(),
     rating: selectedRating,
+    windows: Array.from(selectedWindows),
     lat: pendingCoords.lat,
     lon: pendingCoords.lon,
     date: new Date().toISOString()
@@ -858,6 +1147,8 @@ saveBtn.addEventListener('click', async () => {
   noteInput.value = '';
   pendingCoords = null;
   selectedRating = null;
+  selectedWindows = new Set();
+  renderLogWindowGrid();
   ratingRow.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
 });
 
