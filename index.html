@@ -964,6 +964,7 @@ function initOrRefreshMap(){
       ${f.rating ? `<div class="popup-note">Rating: ${ratingLabel(f.rating)}</div>` : ''}
       <div class="popup-links">
         <a href="${directionsUrl(f.lat, f.lon)}" target="_blank" rel="noopener">Get directions</a>
+        <a href="#" onclick="editFromMap('${f.id}'); return false;">Edit</a>
       </div>
     `;
     marker.bindPopup(popupHtml);
@@ -1029,6 +1030,24 @@ function renderCalendar(){
       </div>
     `;
   }).join('');
+}
+
+/* ---------- Edit from map ---------- */
+function editFromMap(id){
+  editingId = id;
+  renderFinds();
+
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-tab') === 'list');
+  });
+  listView.classList.add('active');
+  mapView.classList.remove('active');
+  calendarView.classList.remove('active');
+
+  setTimeout(() => {
+    const card = findsList.querySelector(`.find-editing[data-id="${id}"]`);
+    if(card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
 }
 
 /* ---------- Locate me ---------- */
